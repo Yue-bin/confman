@@ -23,12 +23,8 @@ _M.install = {
         name = "some commands",
         action = "cmd",
         content = {
-            {
-                "echo 'hello world'", -- 这会被当成shell命令执行
-            },
-            {
-                "ls -l /etc/expmod/expmod.conf"
-            }
+            "echo 'hello world'",     -- 这会被当成shell命令执行
+            "ls -l /etc/expmod/expmod.conf"
         }
     }
 }
