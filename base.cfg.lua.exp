@@ -1,4 +1,8 @@
+-- 需要处理的模块名称，会按顺序处理
 managed = {
     "sing-box",
     "fail2ban"
 }
+
+-- 日志等级
+loglevel = require
