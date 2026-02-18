@@ -85,7 +85,7 @@ for i, module in ipairs(base_cfg.managed) do
                     goto continue_step
                 end
 
-                local ok = action_func(step.content)
+                local ok = action_func(module, step)
                 if not ok then
                     Log:error(string.format("module %s: step '%s' failed", module, step.name))
                     goto continue_step
