@@ -21,3 +21,6 @@
 .ionide
 
 # End of https://www.toptal.com/developers/gitignore/api/visualstudiocode
+
+# 忽略非example的confman配置
+*.cfg.lua

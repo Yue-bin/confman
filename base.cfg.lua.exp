@@ -1,0 +1,4 @@
+managed = {
+    "sing-box",
+    "fail2ban"
+}
