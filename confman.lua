@@ -64,6 +64,11 @@ for i, module in ipairs(base_cfg.managed) do
     Log:info(string.format("processing module %d/%d: %s", i, #base_cfg.managed, module))
 
     utils.indented(function()
+        -- 检查是否使用了保留名
+        if module == "src" then
+            Log:error("module name '" .. module .. "' is reserved, skipping")
+            goto continue
+        end
         local mod = utils.safe_require(module)
         if not mod then
             Log:error("failed to load module " .. module .. ", skipping")
