@@ -5,8 +5,7 @@ set -euo pipefail
 apt install -y lua5.4 \
     luarocks
 
-luarocks-5.4 install \
-    lualogging \
-    luaposix \
-    ansicolors \
-    luafilesystem
+luarocks-5.4 install lualogging 
+luarocks-5.4 install luaposix 
+luarocks-5.4 install ansicolors 
+luarocks-5.4 install luafilesystem
