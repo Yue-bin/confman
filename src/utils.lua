@@ -254,4 +254,11 @@ function _M.action_iterator(action_or_list)
     return ipairs(action_or_list)
 end
 
+--- 获取带文件名路径的目录部分
+--- @param path string 文件路径
+--- @return string dir_path 目录路径
+function _M.dirname(path)
+    return path:match("(.*/)") or "./"
+end
+
 return _M
