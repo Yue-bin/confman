@@ -62,7 +62,7 @@ Log:info("confman started")
 
 --- 加载基础配置
 Log:info("loading base config...")
-local base_cfg = utils.load_cfg(PATH .. "base.cfg.lua")
+local base_cfg = utils.load_cfg("base.cfg.lua")
 if not base_cfg then
     Log:error("failed to load base config, exiting")
     os.exit(1)
