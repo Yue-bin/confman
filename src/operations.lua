@@ -83,7 +83,23 @@ function _M.execute_action(action)
     local ok = action_func(action)
     if not ok then
         Log:error(string.format("action '%s' failed", action.name))
+
+        -- 若有onfail，则执行onfail
+        if action.onfail then
+            Log:info(string.format("Executing onfail action for action '%s'", action.name))
+            for _, action_item in utils.action_iterator(action.onfail) do
+                utils.indented(operations.execute_action(action_item))
+            end
+        end
         return false
+    end
+
+    -- 若有onsuccess，则执行onsuccess
+    if action.onsuccess then
+        Log:info(string.format("Executing onsuccess action for action '%s'", action.name))
+        for _, action_item in utils.action_iterator(action.onsuccess) do
+            utils.indented(operations.execute_action(action_item))
+        end
     end
 
     -- 若有post，则执行post
