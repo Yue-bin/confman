@@ -4,10 +4,12 @@ local utils = require("src.utils")
 local lfs = require("lfs")
 
 function _M.soft(t)
-    utils.indented(
-        require("src.operations").execute_action(t.content) -- 延迟加载避免循环依赖
-    )
-    return true                                             -- 无论结果如何都返回成功，继续执行后续步骤
+    for _, action_item in utils.action_iterator(t.content) do
+        utils.indented(
+            require("src.operations").execute_action(action_item) -- 延迟加载避免循环依赖
+        )
+    end
+    return true -- 无论结果如何都返回成功，继续执行后续步骤
 end
 
 function _M.cp(t)
