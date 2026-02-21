@@ -53,7 +53,7 @@ local cur_indent = 0
 --- 打印日志时提供当前缩进层级
 --- @return string 当前缩进字符串
 function _M.get_indent()
-    return string.rep("   |", cur_indent)
+    return string.rep("|  ", cur_indent)
 end
 
 function _M.indented(fn)
@@ -85,7 +85,11 @@ function _M.print_table(table, print_func, key)
             if type(v) == "table" then
                 _M.print_table(v, print_func, k)
             else
-                print_func(string.format("%s%s = %s", "  ", tostring(k), tostring(v)))
+                _M.indented(
+                    function()
+                        return print_func(string.format("%s = %s", tostring(k), tostring(v)))
+                    end
+                )
             end
         end
 
