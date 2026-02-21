@@ -76,6 +76,14 @@ _M.apply = {
             }
         }
     },
+    {
+        name = "install to another place",
+        action = "apply_config_file",
+        content = {
+            src = "expmod/expmod.conf",
+            dst = "a/s/f/d/expmod.conf"
+        }
+    }
 }
 
 _M.remove = {
