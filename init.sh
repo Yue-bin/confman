@@ -6,4 +6,5 @@ apt install -y \
     lua5.4 \
     lua-logging \
     lua-posix \
-    lua-ansicolors
+    lua-ansicolors \
+    lua-filesystem
