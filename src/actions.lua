@@ -44,6 +44,26 @@ function _M.systemd(t)
     return utils.run_shell(cmd)
 end
 
+function _M.install_pkgs(t)
+    local pkgs = t.content
+    if not pkgs or type(pkgs) ~= "table" then
+        Log:error("install_pkgs action expect a table")
+        return false
+    end
+    local cmd = "apt-get update && apt-get install -y " .. table.concat(pkgs, " ")
+    return utils.run_shell(cmd)
+end
+
+function _M.remove_pkgs(t)
+    local pkgs = t.content
+    if not pkgs or type(pkgs) ~= "table" then
+        Log:error("remove_pkgs action expect a table")
+        return false
+    end
+    local cmd = "apt-get remove -y " .. table.concat(pkgs, " ")
+    return utils.run_shell(cmd)
+end
+
 function _M.cmd(t)
     if not t.content then
         Log:error("cmd action requires 'content'")
