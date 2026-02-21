@@ -4,12 +4,10 @@ local utils = require("src.utils")
 local lfs = require("lfs")
 
 function _M.soft(t)
-    for _, action_item in utils.action_iterator(t.content) do
-        utils.indented(
-            require("src.operations").execute_action(action_item) -- 延迟加载避免循环依赖
-        )
-    end
-    return true -- 无论结果如何都返回成功，继续执行后续步骤
+    utils.indented(
+        require("src.operations").execute_action_or_list(t.content) -- 延迟加载避免循环依赖
+    )
+    return true                                                     -- 无论结果如何都返回成功，继续执行后续步骤
 end
 
 function _M.cp(t)
@@ -148,36 +146,6 @@ function _M.chown(t)
     end
     local cmd = string.format("chown %s:%s %s", user, group or user, path)
     return utils.run_shell(cmd)
-end
-
---- 高级action
---- 这部分是对基本action的组合
-function _M.apply_config_file(t)
-    local src = t.content.src
-    local dst = t.content.dst
-
-    local action = {
-        name = "apply config file",
-        pre = {
-            name = "check if config file exists",
-            action = "testfile",
-            content = {
-                path = src
-            }
-        },
-        action = "cp",
-        content = {
-            src = src,
-            dst = dst
-        },
-        post = {
-            name = "check if config file was copied",
-            action = "testfile",
-            content = {
-                path = dst
-            }
-        }
-    }
 end
 
 -- 兜底

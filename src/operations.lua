@@ -18,7 +18,7 @@ local operations = setmetatable({}, {
 })
 
 local utils = require("src.utils")
-local actions = require("src.actions")
+local actions = require("src.high-level-actions")
 
 --- 处理单个模块的函数工厂
 --- @param module string 模块名称
@@ -43,20 +43,10 @@ function _M.process_module(module, command)
         return false
     end
 
-    local success_count = 0
-    for j, step in ipairs(mod[command]) do
-        Log:info(string.format("module %s: executing step %d/%d '%s'", module, j, #mod[command], step.name))
 
-        if utils.indented(operations.execute_action(step)) then
-            success_count = success_count + 1
-        else
-            Log:error(string.format("module %s: step '%s' failed, aborting module", module, step.name))
-            Log:info(string.format("module %s: completed %d/%d steps successfully", module, success_count, #mod[command]))
-            return false
-        end
-    end
-    Log:info(string.format("module %s: completed %d/%d steps successfully", module, success_count, #mod[command]))
-    return success_count == #mod[command]
+    return utils.indented(
+        operations.execute_action_or_list(mod[command])
+    )
 end
 
 --- 处理单个action的函数
@@ -70,12 +60,10 @@ function _M.execute_action(action)
     -- 若有pre，则先执行pre
     if action.pre then
         Log:info(string.format("Executing pre-check for action '%s'", action.name))
-        for _, action_item in utils.action_iterator(action.pre) do
-            local ok = utils.indented(operations.execute_action(action_item))
-            if not ok then
-                Log:error(string.format("pre-check for action '%s' failed, skipping main action", action.name))
-                return false
-            end
+        local ok = utils.indented(operations.execute_action_or_list(action.pre))
+        if not ok then
+            Log:error(string.format("pre-check for action '%s' failed, skipping main action", action.name))
+            return false
         end
     end
 
@@ -87,9 +75,7 @@ function _M.execute_action(action)
         -- 若有onfail，则执行onfail
         if action.onfail then
             Log:info(string.format("Executing onfail action for action '%s'", action.name))
-            for _, action_item in utils.action_iterator(action.onfail) do
-                utils.indented(operations.execute_action(action_item))
-            end
+            utils.indented(operations.execute_action_or_list(action.onfail))
         end
         return false
     end
@@ -97,24 +83,35 @@ function _M.execute_action(action)
     -- 若有onsuccess，则执行onsuccess
     if action.onsuccess then
         Log:info(string.format("Executing onsuccess action for action '%s'", action.name))
-        for _, action_item in utils.action_iterator(action.onsuccess) do
-            utils.indented(operations.execute_action(action_item))
-        end
+        utils.indented(operations.execute_action_or_list(action.onsuccess))
     end
 
     -- 若有post，则执行post
     if action.post then
         Log:info(string.format("Executing post-check for action '%s'", action.name))
-        for _, action_item in utils.action_iterator(action.post) do
-            local ok = utils.indented(operations.execute_action(action_item))
-            if not ok then
-                Log:error(string.format("post-check for action '%s' failed", action.name))
-                return false
-            end
+        local ok = utils.indented(operations.execute_action_or_list(action.post))
+        if not ok then
+            Log:error(string.format("post-check for action '%s' failed", action.name))
+            return false
         end
     end
 
     Log:info(string.format("action '%s' completed successfully", action.name))
+    return true
+end
+
+--- 处理action或者action列表的函数
+--- @param action_or_list table 单个action表或包含多个action的table
+--- @return boolean success 是否成功
+function _M.execute_action_or_list(action_or_list)
+    utils.print_table(action_or_list, function(...) Log:debug(...) end)
+    for _, action_item in utils.action_iterator(action_or_list) do
+        Log:debug(string.format("Processing action item '%s'", action_item.name))
+        local ok = utils.indented(operations.execute_action(action_item))
+        if not ok then
+            return false
+        end
+    end
     return true
 end
 
