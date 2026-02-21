@@ -30,17 +30,17 @@ local supported_systemd_actions = {
 }
 
 function _M.systemd(t)
-    local action = t.content.action
+    local verb = t.content.verb
     local service = t.content.service
-    if not action or not service then
-        Log:error("systemd action requires 'action' and 'service'")
+    if not verb or not service then
+        Log:error("systemd action requires 'verb' and 'service'")
         return false
     end
-    if not supported_systemd_actions[action] then
-        Log:error("unsupported systemd action '" .. action .. "'")
+    if not supported_systemd_actions[verb] then
+        Log:error("unsupported systemd verb '" .. verb .. "'")
         return false
     end
-    local cmd = string.format("systemctl %s %s", action, service)
+    local cmd = string.format("systemctl %s %s", verb, service)
     return utils.run_shell(cmd)
 end
 
