@@ -1,4 +1,4 @@
-#! /bin/env lua
+#! /bin/env lua5.4
 
 local function is_rel_path(path)
     return not string.match(path, "^/")
