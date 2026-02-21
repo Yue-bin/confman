@@ -1,4 +1,7 @@
 local _M = {}
+local lfs = require("lfs")
+local unistd = require("posix.unistd")
+local wait = require("posix.sys.wait")
 
 --- 用于加载cfg.lua这种内部包含裸table和值的配置文件
 --- @param path string 配置文件路径
@@ -49,17 +52,19 @@ function _M.split(str, sep)
     return result
 end
 
-local cur_indent = 0
+local indent_str = ""
 --- 打印日志时提供当前缩进层级
 --- @return string 当前缩进字符串
 function _M.get_indent()
-    return string.rep("|  ", cur_indent)
+    return indent_str
 end
 
-function _M.indented(fn)
-    cur_indent = cur_indent + 1
+function _M.indented(fn, indent_item)
+    indent_item = indent_item or "|   "
+    local old_indent = indent_str
+    indent_str = indent_str .. indent_item
     local result = { pcall(fn) }
-    cur_indent = cur_indent - 1 -- 即使 fn 出错也会恢复
+    indent_str = old_indent -- 恢复旧缩进
     if not result[1] then
         Log:error("error in indented block: " .. tostring(result[2]))
     end
@@ -72,35 +77,37 @@ end
 --- @param key? string 当前table在父table中的key，内部使用
 function _M.print_table(table, print_func, key)
     print_func = print_func or print
+    local is_root = (key == nil)
     key = key or ""
 
-    _M.indented(function()
-        if key ~= "" then
-            print_func(key .. " = {")
-        else
-            print_func("{")
-        end
-
-        for k, v in pairs(table) do
-            if type(v) == "table" then
-                _M.print_table(v, print_func, k)
+    _M.indented(
+        function()
+            if key ~= "" then
+                print_func(key .. " = {")
             else
-                _M.indented(
-                    function()
-                        return print_func(string.format("%s = %s", tostring(k), tostring(v)))
-                    end
-                )
+                print_func("{")
             end
-        end
 
-        print_func("}")
-    end)
+            for k, v in pairs(table) do
+                if type(v) == "table" then
+                    _M.print_table(v, print_func, k)
+                else
+                    _M.indented(
+                        function()
+                            print_func(string.format("%s = %s", tostring(k), tostring(v)))
+                        end,
+                        "    "
+                    )
+                end
+            end
+
+            print_func("}")
+        end,
+        is_root and "|   " or "    "
+    )
 end
 
 --- 安全地执行shell命令，捕获输出和错误，纯aigc
-local unistd = require("posix.unistd")
-local wait = require("posix.sys.wait")
-
 local BUF_SIZE = 4096
 
 --- 从文件描述符中读取全部数据
@@ -219,6 +226,14 @@ function _M.run_shell(cmd)
     end
 
     return success, stdout, stderr, exit_type, code
+end
+
+--- 检查文件是否存在
+--- @param path string 文件路径
+--- @return boolean 是否存在
+function _M.is_file_exist(path)
+    local attr = lfs.attributes(path)
+    return attr and attr.mode == "file"
 end
 
 return _M
