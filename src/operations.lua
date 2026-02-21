@@ -47,7 +47,7 @@ function _M.process_module(module, command)
     for j, step in ipairs(mod[command]) do
         Log:info(string.format("module %s: executing step %d/%d '%s'", module, j, #mod[command], step.name))
 
-        if utils.indented(operations.execute_step(module, step)) then
+        if utils.indented(operations.execute_action(step)) then
             success_count = success_count + 1
         else
             Log:error(string.format("module %s: step '%s' failed, aborting module", module, step.name))
@@ -60,25 +60,41 @@ function _M.process_module(module, command)
 end
 
 --- 处理单个action的函数
---- @param module string 模块名称
---- @param step table 包含action信息的表
+--- @param action table 包含action信息的表
 --- @return boolean 是否成功
-function _M.execute_step(module, step)
-    Log:debug(string.format("Executing step '%s' of module '%s' with action '%s'", step.name, module, step.action))
+function _M.execute_action(action)
+    Log:debug(string.format("Executing action '%s'", action.name))
 
-    local action_func = actions[step.action]
-    if not action_func then
-        Log:error("unsupported action '" .. step.action .. "' in module " .. module .. ", skipping step")
-        return false
+    local action_func = actions[action.action]
+
+    -- 若有pre，则先执行pre
+    if action.pre then
+        Log:info(string.format("Executing pre-check for action '%s'", action.name))
+        local ok = utils.indented(operations.execute_action(action.pre))
+        if not ok then
+            Log:error(string.format("pre-check for action '%s' failed, skipping main action", action.name))
+            return false
+        end
     end
 
-    local ok = action_func(module, step)
+    -- 运行主action
+    local ok = action_func(action)
     if not ok then
-        Log:error(string.format("module %s: step '%s' failed", module, step.name))
+        Log:error(string.format("action '%s' failed", action.name))
         return false
     end
 
-    Log:info(string.format("module %s: step '%s' completed successfully", module, step.name))
+    -- 若有post，则执行post
+    if action.post then
+        Log:info(string.format("Executing post-check for action '%s'", action.name))
+        local ok = utils.indented(operations.execute_action(action.post))
+        if not ok then
+            Log:error(string.format("post-check for action '%s' failed", action.name))
+            return false
+        end
+    end
+
+    Log:info(string.format("action '%s' completed successfully", action.name))
     return true
 end
 
