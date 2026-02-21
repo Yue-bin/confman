@@ -5,4 +5,4 @@ managed = {
 }
 
 -- 日志等级
-loglevel = require
+loglevel = "DEBUG"
