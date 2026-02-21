@@ -1,6 +1,7 @@
 local _M = {}
 
 local utils = require("src.utils")
+local lfs = require("lfs")
 
 function _M.soft(t)
     utils.indented(
@@ -89,7 +90,92 @@ function _M.testfile(t)
         Log:error("testfile action requires 'path'")
         return false
     end
-    return utils.is_file_exist(path)
+    local attr = lfs.attributes(path)
+    return attr and attr.mode == "file"
+end
+
+function _M.testdir(t)
+    local path = t.content.path
+    if not path then
+        Log:error("testdir action requires 'path'")
+        return false
+    end
+    local attr = lfs.attributes(path)
+    return attr and attr.mode == "directory"
+end
+
+function _M.mkdir(t)
+    local path = t.content.path
+    if not path then
+        Log:error("mkdir action requires 'path'")
+        return false
+    end
+    local cmd = string.format("mkdir -p %s", path)
+    return utils.run_shell(cmd)
+end
+
+function _M.link(t)
+    local src = t.content.src
+    local dst = t.content.dst
+    local symlink = t.content.symlink
+    if not src or not dst then
+        Log:error("link action requires 'src' and 'dst'")
+        return false
+    end
+    return lfs.link(src, dst, symlink) -- 如果symlink为true则创建符号链接，否则创建硬链接
+end
+
+function _M.chmod(t)
+    local path = t.content.path
+    local mode = t.content.mode
+    if not path or not mode then
+        Log:error("chmod action requires 'path' and 'mode'")
+        return false
+    end
+    local cmd = string.format("chmod %s %s", mode, path)
+    return utils.run_shell(cmd)
+end
+
+function _M.chown(t)
+    local path = t.content.path
+    local user = t.content.user
+    local group = t.content.group
+    if not path or not user then
+        Log:error("chown action requires 'path' and 'user'")
+        return false
+    end
+    local cmd = string.format("chown %s:%s %s", user, group or user, path)
+    return utils.run_shell(cmd)
+end
+
+--- 高级action
+--- 这部分是对基本action的组合
+function _M.apply_config_file(t)
+    local src = t.content.src
+    local dst = t.content.dst
+
+    local action = {
+        name = "apply config file",
+        pre = {
+            name = "check if config file exists",
+            action = "testfile",
+            content = {
+                path = src
+            }
+        },
+        action = "cp",
+        content = {
+            src = src,
+            dst = dst
+        },
+        post = {
+            name = "check if config file was copied",
+            action = "testfile",
+            content = {
+                path = dst
+            }
+        }
+    }
 end
 
 -- 兜底

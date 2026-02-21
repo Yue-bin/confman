@@ -5,7 +5,7 @@ local wait = require("posix.sys.wait")
 
 --- 用于加载cfg.lua这种内部包含裸table和值的配置文件
 --- @param path string 配置文件路径
---- @return table? 配置表，或nil表示加载失败
+--- @return table? config 配置表，或nil表示加载失败
 function _M.load_cfg(path)
     Log:debug("loading config from " .. path)
     local config = {}
@@ -26,7 +26,7 @@ end
 
 --- 安全地require
 --- @param module_name string 模块名
---- @return table? 模块表，或nil表示加载失败
+--- @return table? mod 模块表，或nil表示加载失败
 function _M.safe_require(module_name)
     module_name = module_name or ""
     Log:debug("safely requiring module '" .. module_name .. "'")
@@ -42,7 +42,7 @@ end
 --- 切割字符串为table
 --- @param str string 要切割的字符串
 --- @param sep string 分隔符，默认为逗号
---- @return table 切割后的字符串table
+--- @return table str_t 切割后的字符串table
 function _M.split(str, sep)
     sep = sep or ","
     local result = {}
@@ -54,7 +54,7 @@ end
 
 local indent_str = ""
 --- 打印日志时提供当前缩进层级
---- @return string 当前缩进字符串
+--- @return string indent_str 当前缩进字符串
 function _M.get_indent()
     return indent_str
 end
@@ -112,7 +112,7 @@ local BUF_SIZE = 4096
 
 --- 从文件描述符中读取全部数据
 --- @param fd number 文件描述符
---- @return string 读取到的全部数据
+--- @return string data 读取到的全部数据
 local function read_all(fd)
     local chunks = {}
     while true do
@@ -228,12 +228,30 @@ function _M.run_shell(cmd)
     return success, stdout, stderr, exit_type, code
 end
 
---- 检查文件是否存在
---- @param path string 文件路径
---- @return boolean 是否存在
-function _M.is_file_exist(path)
-    local attr = lfs.attributes(path)
-    return attr and attr.mode == "file"
+--- action迭代器，用于解决pre和post等hook可能是actionlist或者单个action的情况
+--- @param action_or_list table 单个action表或包含多个action的table
+--- @return function iterfunc 迭代器函数，每次调用返回一个action表，直到没有更多action时返回nil
+--- @return table? actionlist 经由ipairs透传
+--- @return integer? index 当前action在列表中的索引，经由ipairs透传
+function _M.action_iterator(action_or_list)
+    if type(action_or_list) ~= "table" then
+        Log:error("action_iterator expects a table, got " .. type(action_or_list))
+        return function() return nil end
+    end
+
+    -- 如果是单个action（包含action字段）
+    if action_or_list.action then
+        local done = false
+        return function()
+            if done then return nil end
+            done = true
+            return 1, action_or_list
+        end
+    end
+
+    -- 如果是action列表，返回迭代器函数
+    Log:debug("action_iterator received a list of " .. tostring(#action_or_list) .. " actions")
+    return ipairs(action_or_list)
 end
 
 return _M

@@ -23,7 +23,7 @@ local actions = require("src.actions")
 --- 处理单个模块的函数工厂
 --- @param module string 模块名称
 --- @param command string 操作命令
---- @return boolean 是否成功
+--- @return boolean success 是否成功
 function _M.process_module(module, command)
     Log:debug(string.format("Processing module '%s' with command '%s'", module, command))
     -- 检查是否使用了保留名
@@ -61,7 +61,7 @@ end
 
 --- 处理单个action的函数
 --- @param action table 包含action信息的表
---- @return boolean 是否成功
+--- @return boolean success 是否成功
 function _M.execute_action(action)
     Log:debug(string.format("Executing action '%s'", action.name))
 
@@ -70,10 +70,12 @@ function _M.execute_action(action)
     -- 若有pre，则先执行pre
     if action.pre then
         Log:info(string.format("Executing pre-check for action '%s'", action.name))
-        local ok = utils.indented(operations.execute_action(action.pre))
-        if not ok then
-            Log:error(string.format("pre-check for action '%s' failed, skipping main action", action.name))
-            return false
+        for _, action_item in utils.action_iterator(action.pre) do
+            local ok = utils.indented(operations.execute_action(action_item))
+            if not ok then
+                Log:error(string.format("pre-check for action '%s' failed, skipping main action", action.name))
+                return false
+            end
         end
     end
 
@@ -87,10 +89,12 @@ function _M.execute_action(action)
     -- 若有post，则执行post
     if action.post then
         Log:info(string.format("Executing post-check for action '%s'", action.name))
-        local ok = utils.indented(operations.execute_action(action.post))
-        if not ok then
-            Log:error(string.format("post-check for action '%s' failed", action.name))
-            return false
+        for _, action_item in utils.action_iterator(action.post) do
+            local ok = utils.indented(operations.execute_action(action_item))
+            if not ok then
+                Log:error(string.format("post-check for action '%s' failed", action.name))
+                return false
+            end
         end
     end
 
