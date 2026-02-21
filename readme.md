@@ -7,7 +7,7 @@ confman 是一个用 Lua 编写的轻量级 VPS 配置管理工具，灵感来�
 ## 特性
 
 - **声明式配置**：每个模块使用 Lua 表格描述安装、应用配置、移除的步骤。
-- **灵活的动作系统**：内置 `cp`、`systemd`、`install_pkgs`、`cmd`、`testfile` 等动作，支持 `pre`/`post` 钩子。
+- **灵活的动作系统**：内置 `cp`、`systemd`、`install_pkgs`、`remove_pkgs`、`cmd`、`testfile`、`testdir`、`mkdir`、`link`、`chmod`、`chown`、`soft` 等动作，支持 `pre`/`post`/`onfail`/`onsuccess` 钩子。
 - **模块化组织**：每个服务（或一组相关任务）作为一个独立模块，便于复用和分享。
 - **详细的彩色日志**：通过 `ansicolors` 和 `logging` 库提供带缩进、时间戳的彩色输出，便于调试。
 - **安全执行**：使用 `posix` 库进行安全的 shell 命令执行，捕获 stdout/stderr 和退出码。
@@ -103,6 +103,8 @@ loglevel = "DEBUG"
 | `content` | any | 是 | 动作所需的参数，具体格式因动作而异。 |
 | `pre` | table | 否 | 一个可选的子动作，在主动作之前执行；若失败则跳过主动作。 |
 | `post` | table | 否 | 一个可选的子动作，在主动作之后执行；若失败则标记该步骤为失败。 |
+| `onfail` | table | 否 | 可选的动作，当主动作失败时执行。 |
+| `onsuccess` | table | 否 | 可选的动作，当主动作成功时执行。 |
 
 ### 内置动作
 
@@ -177,6 +179,81 @@ loglevel = "DEBUG"
 }
 ```
 
+#### `testdir`
+
+检查目录是否存在。
+
+```lua
+{
+    name = "check directory",
+    action = "testdir",
+    content = {
+        path = "/etc/nginx"
+    }
+}
+```
+
+#### `mkdir`
+
+创建目录（如果不存在则创建父目录）。
+
+```lua
+{
+    name = "create directory",
+    action = "mkdir",
+    content = {
+        path = "/etc/myapp"
+    }
+}
+```
+
+#### `link`
+
+创建硬链接或符号链接。
+
+```lua
+{
+    name = "create symlink",
+    action = "link",
+    content = {
+        src = "/path/to/source",
+        dst = "/path/to/link",
+        symlink = true   -- 可选，默认为false（硬链接）
+    }
+}
+```
+
+#### `chmod`
+
+修改文件或目录的权限。
+
+```lua
+{
+    name = "change permissions",
+    action = "chmod",
+    content = {
+        path = "/etc/myapp/config.conf",
+        mode = "644"
+    }
+}
+```
+
+#### `chown`
+
+修改文件或目录的所有者和组。
+
+```lua
+{
+    name = "change ownership",
+    action = "chown",
+    content = {
+        path = "/etc/myapp/config.conf",
+        user = "www-data",
+        group = "www-data"   -- 可选，默认与user相同
+    }
+}
+```
+
 #### `soft`
 
 “软”动作：即使子动作失败，也继续执行后续步骤。通常用于可选的预检查。
@@ -193,9 +270,28 @@ loglevel = "DEBUG"
 }
 ```
 
+### 高级动作
+
+高级动作是对基本动作的组合，提供更复杂的逻辑。
+
+#### `apply_config_file`
+
+复制配置文件，并在复制前自动检查目标目录是否存在（若不存在则创建），复制后验证文件是否成功复制。
+
+```lua
+{
+    name = "apply config file",
+    action = "apply_config_file",
+    content = {
+        src = "myapp.conf",
+        dst = "/etc/myapp.conf"
+    }
+}
+```
+
 ### 嵌套动作
 
-`pre` 和 `post` 字段本身也是一个完整的动作表，因此可以无限嵌套，实现复杂的条件逻辑。
+`pre`、`post`、`onfail` 和 `onsuccess` 字段本身也都是完整的动作表，因此可以无限嵌套，实现复杂的条件逻辑。
 
 ## 模块示例
 
@@ -287,6 +383,7 @@ return _M
 ├── src/                 # 内部模块（保留名称，用户不要使用）
 │   ├── utils.lua        # 工具函数
 │   ├── actions.lua      # 动作实现
+│   ├── high-level-actions.lua # 高级动作组合
 │   ├── operations.lua   # 模块处理逻辑
 │   └── commands.lua     # 命令验证
 ├── module.exp/          # 示例模块
@@ -302,7 +399,7 @@ return _M
 
 - 模块目录名不能为 `src`，该名称被保留用于内部代码。
 - 配置文件（`*.cfg.lua`）使用 Lua 语法，直接返回一个表；模板文件（`*.cfg.lua.exp`）仅供复制。
-- 日志等级可在 `base.cfg.lua` 中设置，也可在运行时通过环境变量 `CONFMAN_LOGLEVEL` 覆盖（需代码支持，当前未实现）。
+- 日志等级可在 `base.cfg.lua` 中设置；暂不支持通过环境变量覆盖。
 - 所有 shell 命令均通过 `posix` 库执行，确保输出被正确捕获，避免因命令失败导致脚本中断。
 
 ## 许可证
