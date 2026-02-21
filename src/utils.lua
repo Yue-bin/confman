@@ -25,13 +25,27 @@ end
 --- @param module_name string 模块名
 --- @return table? 模块表，或nil表示加载失败
 function _M.safe_require(module_name)
-    Log:debug("safely requiring module " .. module_name)
+    module_name = module_name or ""
+    Log:debug("safely requiring module '" .. module_name .. "'")
     local ok, result = pcall(require, module_name)
     if not ok then
-        Log:error("failed to require module " .. module_name .. ": " .. result)
+        Log:error("failed to require module '" .. module_name .. "': " .. result)
         return nil
     end
 
+    return result
+end
+
+--- 切割字符串为table
+--- @param str string 要切割的字符串
+--- @param sep string 分隔符，默认为逗号
+--- @return table 切割后的字符串table
+function _M.split(str, sep)
+    sep = sep or ","
+    local result = {}
+    for part in string.gmatch(str, "([^" .. sep .. "]+)") do
+        table.insert(result, part)
+    end
     return result
 end
 
@@ -39,16 +53,17 @@ local cur_indent = 0
 --- 打印日志时提供当前缩进层级
 --- @return string 当前缩进字符串
 function _M.get_indent()
-    return string.rep("  ", cur_indent)
+    return string.rep("   |", cur_indent)
 end
 
 function _M.indented(fn)
     cur_indent = cur_indent + 1
-    local ok, err = pcall(fn)
+    local result = { pcall(fn) }
     cur_indent = cur_indent - 1 -- 即使 fn 出错也会恢复
-    if not ok then
-        Log:error("error in indented block: " .. tostring(err))
+    if not result[1] then
+        Log:error("error in indented block: " .. tostring(result[2]))
     end
+    return table.unpack(result, 2)
 end
 
 --- 打印table，递归展开

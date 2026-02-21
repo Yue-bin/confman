@@ -2,6 +2,8 @@
 
 -- 加载模块
 local utils = require("src.utils")
+local commands = require("src.commands")
+local operations = require("src.operations")
 --- 全局日志
 local ansicolors = require("ansicolors") -- https://github.com/kikito/ansicolors.lua
 local ll = require("logging")
@@ -32,6 +34,15 @@ end))
 
 Log = ll.defaultLogger()
 
+-- 预定义一个需要处理的模块列表
+local managed_modules = {}
+
+--- 参数检查
+_ = commands[arg[1]]
+-- 如果提供了参数2，则直接替换base.cfg.lua中的managed列表
+if arg[2] then
+    managed_modules = utils.split(arg[2], ",")
+end
 
 --- 正式启动
 Log:info("confman started")
@@ -44,7 +55,12 @@ if not base_cfg then
     os.exit(1)
 end
 
-Log:info(#base_cfg.managed .. " modules to manage: " .. table.concat(base_cfg.managed, ", "))
+-- 如果没有通过命令行参数覆盖，则使用配置文件中的managed列表
+if #managed_modules == 0 then
+    managed_modules = base_cfg.managed or {}
+end
+
+Log:info(#managed_modules .. " modules to manage: " .. table.concat(managed_modules, ", "))
 
 -- 修改日志等级
 local new_log_level = ll.INFO
@@ -59,46 +75,14 @@ Log:setLevel(new_log_level)
 Log:info("log level set to " .. new_log_level)
 
 
+local success_count = 0
+
 --- 正式处理
-for i, module in ipairs(base_cfg.managed) do
-    Log:info(string.format("processing module %d/%d: %s", i, #base_cfg.managed, module))
-
-    utils.indented(function()
-        -- 检查是否使用了保留名
-        if module == "src" then
-            Log:error("module name '" .. module .. "' is reserved, skipping")
-            goto continue
-        end
-        local mod = utils.safe_require(module)
-        if not mod then
-            Log:error("failed to load module " .. module .. ", skipping")
-            goto continue
-        end
-
-        if not mod.install then
-            Log:error("module " .. module .. " does not have an install table, skipping")
-            goto continue
-        end
-
-        for j, step in ipairs(mod.install) do
-            Log:info(string.format("module %s: executing step %d/%d '%s'", module, j, #mod.install, step.name))
-
-            utils.indented(function()
-                local action_func = require("src.actions")[step.action]
-                if not action_func then
-                    Log:error("unsupported action '" .. step.action .. "' in module " .. module .. ", skipping step")
-                    goto continue_step
-                end
-
-                local ok = action_func(module, step)
-                if not ok then
-                    Log:error(string.format("module %s: step '%s' failed", module, step.name))
-                    goto continue_step
-                end
-
-                ::continue_step::
-            end)
-        end
-        ::continue::
-    end)
+for i, module in ipairs(managed_modules) do
+    Log:info(string.format("processing module %d/%d: %s", i, #managed_modules, module))
+    if utils.indented(operations.process_module(module, arg[1])) then
+        success_count = success_count + 1
+    end
 end
+
+Log:info(string.format("completed processing %d/%d modules successfully", success_count, #managed_modules))
