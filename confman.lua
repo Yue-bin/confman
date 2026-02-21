@@ -1,5 +1,18 @@
 #! /bin/env lua
 
+local function is_rel_path(path)
+    return not string.match(path, "^/")
+end
+
+-- 提供相对require的能力
+PATH = string.match(arg[0], "^(.+)/[^/]+$") .. "/"
+-- 判断是否为绝对路径
+if is_rel_path(PATH) then
+    PATH = os.getenv("PWD") .. "/" .. PATH
+end
+-- 使脚本可以从任意路径启动
+package.path = ('%s?.lua;%s'):format(PATH, package.path)
+
 -- 加载模块
 local utils = require("src.utils")
 local commands = require("src.commands")
@@ -49,7 +62,7 @@ Log:info("confman started")
 
 --- 加载基础配置
 Log:info("loading base config...")
-local base_cfg = utils.load_cfg("base.cfg.lua")
+local base_cfg = utils.load_cfg(PATH .. "base.cfg.lua")
 if not base_cfg then
     Log:error("failed to load base config, exiting")
     os.exit(1)
