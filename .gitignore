@@ -23,4 +23,5 @@
 # End of https://www.toptal.com/developers/gitignore/api/visualstudiocode
 
 # 忽略非example的confman配置
-*.cfg.lua
+# 转模版仓库了，所以不需要了
+# *.cfg.lua
