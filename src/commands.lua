@@ -2,6 +2,7 @@
 local commands = {
     install = true,
     apply = true,
+    grab = true,
     remove = true,
 }
 
