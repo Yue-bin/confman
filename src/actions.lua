@@ -77,9 +77,9 @@ function _M.cmd(t)
             Log:error("command failed: " ..
                 cmd .. " (exit_type: " .. exit_type .. ", code: " .. code .. ", stderr: " .. stderr .. ")")
             success = false
+        else
+            Log:info("command succeeded: " .. cmd .. " (stdout: " .. stdout .. ")")
         end
-
-        Log:info("command succeeded: " .. cmd .. " (stdout: " .. stdout .. ")")
     end
     return success
 end
