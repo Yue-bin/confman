@@ -219,7 +219,8 @@ function _M.run_shell(cmd)
     local success = (reason == "exited" and code == 0)
 
     if not success then
-        Log:error(string.format(
+        -- error 已经在调用处打印了，这里只输出调试日志
+        Log:debug(string.format(
             "shell command failed: %s (exit_type: %s, code: %d, stderr: %s)",
             cmd, exit_type, code, stderr
         ))
