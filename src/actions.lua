@@ -17,8 +17,7 @@ function _M.cp(t)
         Log:error("cp action requires 'src' and 'dst'")
         return false
     end
-    local cmd = string.format("cp %s %s", src, dst)
-    return utils.run_shell(cmd)
+    return utils.run_argv({ "cp", src, dst })
 end
 
 local supported_systemd_actions = {
@@ -41,8 +40,7 @@ function _M.systemd(t)
         Log:error("unsupported systemd verb '" .. verb .. "'")
         return false
     end
-    local cmd = string.format("systemctl %s %s", verb, service)
-    return utils.run_shell(cmd)
+    return utils.run_argv({ "systemctl", verb, service })
 end
 
 function _M.install_pkgs(t)
@@ -110,8 +108,7 @@ function _M.mkdir(t)
         Log:error("mkdir action requires 'path'")
         return false
     end
-    local cmd = string.format("mkdir -p %s", path)
-    return utils.run_shell(cmd)
+    return utils.run_argv({ "mkdir", "-p", path })
 end
 
 function _M.link(t)
@@ -132,8 +129,7 @@ function _M.chmod(t)
         Log:error("chmod action requires 'path' and 'mode'")
         return false
     end
-    local cmd = string.format("chmod %s %s", mode, path)
-    return utils.run_shell(cmd)
+    return utils.run_argv({ "chmod", mode, path })
 end
 
 function _M.chown(t)
@@ -144,8 +140,7 @@ function _M.chown(t)
         Log:error("chown action requires 'path' and 'user'")
         return false
     end
-    local cmd = string.format("chown %s:%s %s", user, group or user, path)
-    return utils.run_shell(cmd)
+    return utils.run_argv({ "chown", user .. ":" .. (group or user), path })
 end
 
 -- 兜底
