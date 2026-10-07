@@ -130,7 +130,26 @@ local function read_all(fd)
     return table.concat(chunks)
 end
 
+--- 把字符串安全地包成 shell 单引号字面量
+--- 单引号与反斜杠用 string.char() 表示，避免在源码里写转义序列
+--- @param s any 任意值（会被 tostring）
+--- @return string 可直接拼进 shell 命令的字面量
+local SQ = string.char(39)
+local BS = string.char(92)
+local function shell_quote(s)
+    -- 单引号内部的单引号：收尾 + 反斜杠转义 + 重新开头
+    local quoted = tostring(s):gsub(SQ, SQ .. BS .. SQ .. SQ)
+    return SQ .. quoted .. SQ
+end
+
 --- 安全地执行shell命令，分别捕获 stdout、stderr 和退出码
+---
+--- stderr 不走管道，而是落临时文件。这是有意的：
+--- 若 stdout 与 stderr 各占一个管道，父进程「先把 stdout 读到 EOF、再读 stderr」时，
+--- 只要子进程往 stderr 写入超过管道缓冲（Linux 默认 64 KiB）就会死锁 ——
+--- 子进程阻塞在 write(stderr) 上永不退出，父进程则在 read(stdout) 上等一个
+--- 只有子进程退出才可能到来的 EOF。apt-get / dpkg 这类命令的 stderr 很容易越线。
+--- os.tmpname() 在 POSIX 上会顺带以 0600 创建文件，所以不存在符号链接抢占问题。
 --- @param cmd string 命令字符串
 --- @return boolean success   是否执行成功（退出码为0）
 --- @return string  stdout    命令的标准输出
@@ -148,15 +167,8 @@ function _M.run_shell(cmd)
         return false, "", msg, "exit", -1
     end
 
-    -- 创建 stderr 管道
-    local stderr_r, stderr_w = unistd.pipe()
-    if not stderr_r then
-        local msg = "failed to create stderr pipe: " .. tostring(stderr_w)
-        Log:error(msg)
-        unistd.close(stdout_r)
-        unistd.close(stdout_w)
-        return false, "", msg, "exit", -1
-    end
+    -- stderr 落临时文件（理由见函数头注释）
+    local stderr_path = os.tmpname()
 
     -- fork 子进程
     local pid, fork_err = unistd.fork()
@@ -167,8 +179,7 @@ function _M.run_shell(cmd)
         Log:error(msg)
         unistd.close(stdout_r)
         unistd.close(stdout_w)
-        unistd.close(stderr_r)
-        unistd.close(stderr_w)
+        os.remove(stderr_path)
         return false, "", msg, "exit", -1
     end
 
@@ -178,18 +189,16 @@ function _M.run_shell(cmd)
         -----------------------------------------------
         -- 关闭不需要的读端
         unistd.close(stdout_r)
-        unistd.close(stderr_r)
 
-        -- 将 stdout_w 重定向到 STDOUT，stderr_w 重定向到 STDERR
+        -- 把 stdout_w 重定向到 STDOUT
         unistd.dup2(stdout_w, unistd.STDOUT_FILENO)
-        unistd.dup2(stderr_w, unistd.STDERR_FILENO)
-
-        -- 重定向完成后关闭原始 fd
         unistd.close(stdout_w)
-        unistd.close(stderr_w)
 
-        -- 通过 sh -c 执行命令
-        local ok, err = unistd.execp("/bin/bash", { "-c", cmd })
+        -- 用 bash 自己的重定向把 stderr 写进临时文件，省掉第二个管道
+        local script = "exec 2>" .. shell_quote(stderr_path) .. "\n" .. cmd
+
+        -- 通过 bash -c 执行命令
+        unistd.execp("/bin/bash", { "-c", script })
         -- execp 成功不会返回，走到这里说明失败了
         unistd._exit(127)
     end
@@ -199,20 +208,24 @@ function _M.run_shell(cmd)
     -----------------------------------------------
     -- 关闭不需要的写端（重要！否则 read 不会收到 EOF）
     unistd.close(stdout_w)
-    unistd.close(stderr_w)
 
-    -- 读取子进程的 stdout 和 stderr
+    -- 读取子进程的 stdout
     local stdout = read_all(stdout_r)
-    local stderr = read_all(stderr_r)
-
-    -- 关闭读端
     unistd.close(stdout_r)
-    unistd.close(stderr_r)
 
     -- 等待子进程结束，获取退出状态
     local _, reason, status = wait.wait(pid)
     -- reason: "exited", "killed", "stopped"
     -- status: 退出码 或 信号编号
+
+    -- 子进程已退出，这时读临时文件是安全的
+    local stderr = ""
+    local f = io.open(stderr_path, "r")
+    if f then
+        stderr = f:read("*a") or ""
+        f:close()
+    end
+    os.remove(stderr_path)
 
     local exit_type = (reason == "exited") and "exit" or "signal"
     local code = status or -1
@@ -227,6 +240,19 @@ function _M.run_shell(cmd)
     end
 
     return success, stdout, stderr, exit_type, code
+end
+
+--- 以 argv 形式执行命令：每个参数都被完整引用后再交给 shell，
+--- 因此参数里的空格、引号、分号等不会产生任何特殊含义。
+--- 用来替掉 string.format("cp %s %s", src, dst) 这类裸拼接。
+--- @param argv table 例如 { "cp", "/a b/c", "/d" }
+--- @return boolean success, string stdout, string stderr, string exit_type, number code
+function _M.run_argv(argv)
+    local parts = {}
+    for i, v in ipairs(argv) do
+        parts[i] = shell_quote(v)
+    end
+    return _M.run_shell(table.concat(parts, " "))
 end
 
 --- action迭代器，用于解决pre和post等hook可能是actionlist或者单个action的情况
