@@ -118,7 +118,7 @@ loglevel = "DEBUG"
     name = "copy config",
     action = "cp",
     content = {
-        src = "my.conf",   -- 源文件（相对模块目录）
+        src = "my.conf",   -- 源文件（相对 confman 的工作目录，也就是执行 confman.lua 时所在的目录）
         dst = "/etc/my.conf"
     }
 }
@@ -369,8 +369,6 @@ return _M
 # 仅对 sing-box 和 fail2ban 应用配置
 ./confman.lua apply sing-box,fail2ban
 
-# 移除名为 testmod 的模块
-./confman.lua remove testmod
 ```
 
 ## 项目结构
@@ -390,16 +388,15 @@ return _M
 ├── module.exp/          # 示例模块
 │   ├── init.lua
 │   └── expmod.conf
-├── testmod/             # 测试模块
-│   ├── init.lua
-│   └── testmod.conf
 └── README.md            # 本文档
 ```
 
 ## 注意事项
 
 - 模块目录名不能为 `src`，该名称被保留用于内部代码。
-- 配置文件（`*.cfg.lua`）使用 Lua 语法，直接返回一个表；模板文件（`*.cfg.lua.exp`）仅供复制。
+- 配置文件（`*.cfg.lua`）由 `utils.load_cfg` 以 `loadfile(path, "t", env)` 加载，**返回的是那个 env 表**。
+  所以配置里要写裸赋值（`managed = { ... }`），**不要写 `return { ... }`** —— 返回值会被静默丢弃，
+  表现为日志里只有一句 `0 modules to manage`，而退出码仍是 0。模板文件（`*.cfg.lua.exp`）仅供复制。
 - 日志等级可在 `base.cfg.lua` 中设置；暂不支持通过环境变量覆盖。
 - 所有 shell 命令均通过 `posix` 库执行，确保输出被正确捕获，避免因命令失败导致脚本中断。
 
@@ -409,4 +406,5 @@ return _M
 
 ## 贡献
 
-欢迎提交 Issue 和 Pull Request 来改进 confman。请确保代码风格与现有代码一致，并补充相应的测试。
+欢迎提交 Issue 和 Pull Request 来改进 confman。请确保代码风格与现有代码一致。
+（本项目目前没有测试基础设施；`src/` 下的模块依赖全局 `Log`，无法被单独 require。）
